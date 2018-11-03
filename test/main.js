@@ -24,8 +24,14 @@ const api_port = process.env.API_PORT || 8000;
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+// Node.js의 native Promise 사용
+mongoose.Promise = global.Promise;
+
 // get Model
-var Time = require("./models/time");
+var Time = require("./routes/time");
+
+// Static File Service
+app.use(express.static("public"));
 
 // API Module
 const api = require("./modules")(app, Time);
