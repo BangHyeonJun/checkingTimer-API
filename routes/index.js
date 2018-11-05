@@ -9,8 +9,9 @@ let result_model = {
 const common = require("../common/common");
 
 module.exports = function(app, Time) {
+    // 가장 최근 데이터를 가져온다.
+    // 수정 : 주에 따라 주가 안맞으면 데이터가 없도록 해야한다.
     app.get("/commute/initial", function(req, res) {
-        console.log(req);
         Time.findOne(
             {
                 user_id: req.headers.user_id
@@ -18,16 +19,15 @@ module.exports = function(app, Time) {
             function(err, times) {
                 let result = result_model;
 
-                if (err) {
+                if (err || !times) {
                     result.message = "database failure";
                     result.result = {};
                     result.status_code = 501;
-                    return result;
                 } else {
-                    console.log(
-                        common.unix_to_time("date", times.reg_time),
-                        common.getDate("Date_now", null)
-                    );
+                    // console.log(
+                    //     common.unix_to_time("date", times.reg_time),
+                    //     common.getDate("Date_now", null)
+                    // );
                     if (
                         common.unix_to_time("date", times.reg_time) ==
                         common.getDate("Date_now", null)
@@ -65,10 +65,11 @@ module.exports = function(app, Time) {
         ).sort({ reg_time: -1 });
     });
 
+    // 해당 아이디에 모든 출근 데이터를 가져온다.
     app.get("/commute/timelist", function(req, res) {
         Time.find(
             {
-                user_id: "2",
+                user_id: req.headers.user_id,
                 reg_time: {
                     $gte: common.time_to_unix(
                         common.getDate("min_timestamp_now", null)
@@ -92,16 +93,72 @@ module.exports = function(app, Time) {
         ).sort({ reg_time: -1 });
     });
 
-    app.post("/commute/timedata", function(req, res) {
+    // 출근 데이터를 저장한다.
+    // 수정 : 소모 시간과 남은 시간을 저장해야한다.
+    app.post("/commute/intime", function(req, res) {
         let time = new Time();
-        // 실시간 데이터를 넣기 위해
+
+        // 유저 아이디
+        time.user_id = req.body.user_id;
+
+        // 등록 날짜를 실시간으로 입력
         time.reg_time = common.time_to_unix(
             common.getDate("timestamp_now", null)
         );
 
-        time.user_id = req.body.user_id;
+        // 출근 시간
         time.in_time = req.body.in_time;
+
+        // 퇴근시간이 없기 때문에 출근시간으로 입력
+        time.out_time = req.body.in_time;
+
+        // 출 퇴근 체크
+        time.check_in_time = true;
+        time.check_out_time = false;
+
+        // 셋팅 시간을 가져온다.
+        time.set_time_week = req.body.set_time_week;
+        time.spd_time_week = req.body.spd_time_week;
+        time.rmn_time_week = req.body.rmn_time_week;
+
+        time.save(function(err) {
+            if (err) {
+                console.error(err);
+                res.json({ result: 0 });
+                return;
+            }
+            res.json({ result: 1 });
+        });
+    });
+
+    // 퇴근 데이터를 저장한다.
+    // 수정 : 소모 시간과 남은 시간을 저장해야한다.
+    app.post("/commute/outtime", function(req, res) {
+        let time = new Time();
+
+        // 유저 아이디
+        time.user_id = req.body.user_id;
+
+        // 등록 날짜를 실시간으로 입력
+        time.reg_time = common.time_to_unix(
+            common.getDate("timestamp_now", null)
+        );
+
+        // 출근 시간
+        time.in_time = req.body.in_time;
+
+        // 퇴근시간이 없기 때문에 출근시간으로 입력
         time.out_time = req.body.out_time;
+
+        // 출 퇴근 체크
+        time.check_in_time = true;
+        time.check_out_time = true;
+
+        // 셋팅 시간을 가져온다.
+        time.set_time_week = req.body.set_time_week;
+        time.spd_time_week = req.body.spd_time_week;
+        time.rmn_time_week = req.body.rmn_time_week;
+
         time.save(function(err) {
             if (err) {
                 console.error(err);
